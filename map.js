@@ -46,7 +46,7 @@ map.addLayer({
     type: 'line',
     source: 'cambridge_route',
     paint: {
-    'line-color': 'pink',
+    'line-color': 'green',
     'line-width': 3,
     'line-opacity': 0.4,
   },
