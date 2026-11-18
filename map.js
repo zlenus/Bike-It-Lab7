@@ -70,8 +70,39 @@ map.on('load', async () => {
     return;
   }
 
-  let stations = jsonData.data.stations;
-  console.log('Stations Array:', stations);
+    let stations = jsonData.data.stations;
+
+  // --- 4.1: Load the trip data ---
+  const trips = await d3.csv('https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv');
+  console.log('Trips loaded:', trips.length);
+
+  // --- 4.2: Count departures and arrivals per station ---
+  const departures = d3.rollup(
+    trips,
+    (v) => v.length,          // count the trips in each group
+    (d) => d.start_station_id, // group by where the trip started
+  );
+
+  const arrivals = d3.rollup(
+    trips,
+    (v) => v.length,
+    (d) => d.end_station_id,   // group by where the trip ended
+  );
+
+  stations = stations.map((station) => {
+    let id = station.short_name;
+    station.arrivals = arrivals.get(id) ?? 0;
+    station.departures = departures.get(id) ?? 0;
+    station.totalTraffic = station.arrivals + station.departures;
+    return station;
+  });
+  console.log('Stations with traffic:', stations);
+
+  // --- 4.3: Size circles by traffic ---
+  const radiusScale = d3
+    .scaleSqrt()
+    .domain([0, d3.max(stations, (d) => d.totalTraffic)])
+    .range([0, 25]);
 
   const svg = d3.select('#map').select('svg');
 
@@ -80,12 +111,13 @@ map.on('load', async () => {
     .data(stations)
     .enter()
     .append('circle')
-    .attr('r', 5)
-    .attr('fill', 'steelblue')
-    .attr('stroke', 'white')
-    .attr('stroke-width', 1)
-    .attr('opacity', 0.8);
-
+    .attr('r', (d) => radiusScale(d.totalTraffic))
+    // --- 4.4: Tooltip with exact numbers ---
+    .each(function (d) {
+      d3.select(this)
+        .append('title')
+        .text(`${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`);
+    });
   function updatePositions() {
     circles
       .attr('cx', (d) => getCoords(d).cx)
